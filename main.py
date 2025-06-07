@@ -3,8 +3,10 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from datetime import datetime
 import logging
 import os
+import openai
 
 API_TOKEN = os.getenv("API_TOKEN")
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 logging.basicConfig(level=logging.INFO)
 
@@ -52,7 +54,8 @@ async def process_date_input(message: types.Message):
             c = sum(int(ch) for ch in str(year))
             d1 = day + month + c
             e = reduce_to_arcana(d1)
-            await message.answer(f"🎴 Ваша классическая матрица:\nАркан судьбы: {e}")
+            gpt_text = get_gpt_interpretation(e)
+            await message.answer(f"🎴 Аркан судьбы: {e}\n\n{gpt_text}")
         elif len(dates) == 2:
             await message.answer("🔗 Базовая совместимость рассчитана. Расширенная версия доступна после оплаты.")
         else:
@@ -64,6 +67,21 @@ def reduce_to_arcana(num):
     while num > 22:
         num = sum(int(d) for d in str(num))
     return num if num != 0 else 22
+
+def get_gpt_interpretation(arkana_number):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Ты эзотерик и таролог. Дай понятную, вдохновляющую интерпретацию Аркана из матрицы судьбы. Объясни кратко суть, миссию, возможные уроки."},
+                {"role": "user", "content": f"Расскажи про Аркан номер {arkana_number} из матрицы судьбы."}
+            ],
+            temperature=0.7,
+            max_tokens=300
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"⚠️ Ошибка GPT: {e}"
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
